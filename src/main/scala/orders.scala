@@ -9,10 +9,8 @@ object orders {
     orderDate.atZone(ZoneOffset.UTC).minusMonths(monthAgo).toLocalDateTime
 
   def intervalCategorizer(categories: Map[String, (LocalDateTime, LocalDateTime)], date: LocalDateTime): String = {
-    println(s"Looking for $date in $categories")
     categories.filter { category =>
-      date.isAfter(category._2._2) &&
-        date.isBefore(category._2._1)
+      date.isAfter(category._2._2) && date.isBefore(category._2._1)
     }.keys.headOption.orNull
   }
 
@@ -20,7 +18,7 @@ object orders {
                               categories: LocalDateTime => Map[String, (LocalDateTime, LocalDateTime)]): Map[String, List[Order]] = {
     @tailrec
     def occurrences(orders: List[Order], items: List[Item], groups: Map[String, List[Order]]): Map[String, List[Order]] = {
-      if (orders.isEmpty & items.isEmpty) Map.empty
+      if (orders.isEmpty) groups
       else if (items.isEmpty) occurrences(orders.tail, orders.head.purchases, groups)
       else {
         val category = intervalCategorizer(categories(orders.head.orderDate), items.head.product.creationDate)
@@ -28,8 +26,8 @@ object orders {
         occurrences(orders, items.tail, groups + (category -> (currentGroups :+ orders.head)))
       }
     }
-
     occurrences(orderList, List.empty, Map.empty)
+      .filter(x => categories(orderList.head.orderDate).keys.toList.contains(x._1))
   }
 
   def main(args: Array[String]): Unit = {
@@ -63,11 +61,11 @@ object orders {
     // creating sample data for testing purpose
     val ali = Customer("Ali", "ali.t.asl@outlook.com", 98921)
     val aliHome = Address("Iran", "Tehran", "", "", "X233")
-    val orderDate = LocalDateTime.parse("2022-10-01 00:00:00", DATE_PATTERN)
-    val product = Product("blower", "technical", 35, 2000, LocalDateTime.parse("2022-10-11 00:00:00", DATE_PATTERN))
+    val orderDate = LocalDateTime.parse("2014-10-01 00:00:00", DATE_PATTERN)
+    val product = Product("blower", "technical", 35, 2000, LocalDateTime.parse("2014-10-11 00:00:00", DATE_PATTERN))
     val item = Item(product, 2, 3990, 200, 400)
     val ordersDatabase: List[Order] = (1 to 100).toList map { num =>
-      Order(List(item), ali, aliHome, 0, orderDate.minusMonths(num))
+      Order(List(item), ali, aliHome, 0, orderDate.plusMonths(num))
     }
 
     val filteredOrders = ordersDatabase.filter { order =>
@@ -75,11 +73,10 @@ object orders {
         && order.orderDate.isAfter(startDate)
     }
 
-    val groups = groupByInMultipleGroups(ordersDatabase, selectedIntervals)
+    val groups = groupByInMultipleGroups(filteredOrders, selectedIntervals)
 
-    println(groups mkString "\n")
-//    groups.foreach { case name -> list =>
-//      println(s"$name: ${list.length} orders")
-//    }
+    groups.foreach { case name -> list =>
+      println(s"$name: ${list.length} orders")
+    }
   }
 }
